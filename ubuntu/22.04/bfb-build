@@ -52,12 +52,44 @@ WDIR=/tmp/${DISTRO}${DISTRO_VERSION}.$$
 BASE_URL=${BASE_URL:-"https://linux.mellanox.com/public/repo"}
 
 mkdir -p $WDIR
-echo "Downloading doca-dpu-repo..."
-wget -q -P $WDIR -r --no-verbose --no-directories -l1 --no-parent -A 'doca-dpu-repo*arm64.deb' ${BASE_URL}/doca/${DOCA_VERSION}/${DISTRO}${DISTRO_VERSION}/aarch64/
-mv $WDIR/doca-dpu-repo*arm64.deb $WDIR/doca-repo.deb
+echo "Downloading mlxbf-scripts..."
+if [ -f "../../../mlxbf-scripts_arm64.deb" ]; then
+	echo "Using existing mlxbf-scripts_arm64.deb"
+	cp ../../../mlxbf-scripts_arm64.deb $WDIR/mlxbf-scripts_arm64.deb
+else
+	wget -q -P $WDIR -r --no-verbose --no-directories -l1 --no-parent -A 'mlxbf-scripts_3.6_arm64.deb' ${BASE_URL}/doca/${DOCA_VERSION}/${DISTRO}${DISTRO_VERSION}/aarch64/
+	mv $WDIR/mlxbf-scripts_3.6_arm64.deb $WDIR/mlxbf-scripts_arm64.deb
+fi
+echo "Downloading mlxbf-bootctl..."
+if [ -f "../../../mlxbf-bootctl_arm64.deb" ]; then
+	echo "Using existing mlxbf-bootctl_arm64.deb"
+	cp ../../../mlxbf-bootctl_arm64.deb $WDIR/mlxbf-bootctl_arm64.deb
+else
+	wget -q -P $WDIR -r --no-verbose --no-directories -l1 --no-parent -A 'mlxbf-bootctl_2.1_arm64.deb' ${BASE_URL}/doca/${DOCA_VERSION}/${DISTRO}${DISTRO_VERSION}/aarch64/
+	mv $WDIR/mlxbf-bootctl_2.1_arm64.deb $WDIR/mlxbf-bootctl_arm64.deb
+fi
 echo "Downloading mlxbf-bootimages..."
-wget -q -P $WDIR -r --no-verbose --no-directories -l1 --no-parent -A 'mlxbf-bootimages*arm64.deb' ${BASE_URL}/bluefield/${BSP_VERSION}/bootimages/${IMAGE_TYPE}/
-mv $WDIR/mlxbf-bootimages*arm64.deb $WDIR/mlxbf-bootimages.deb
+if [ -f "../../../mlxbf-bootimages.deb" ]; then
+	echo "Using existing mlxbf-bootimages_arm64.deb"
+	cp ../../../mlxbf-bootimages.deb $WDIR/mlxbf-bootimages.deb
+else
+	wget -q -P $WDIR -r --no-verbose --no-directories -l1 --no-parent -A 'mlxbf-bootimages*arm64.deb' ${BASE_URL}/bluefield/${BSP_VERSION}/bootimages/${IMAGE_TYPE}/
+	mv $WDIR/mlxbf-bootimages*arm64.deb $WDIR/mlxbf-bootimages.deb
+fi
+echo "Downloading $DISTRO base image..."
+if [ -f "../../../jammy-server-cloudimg-arm64-root.tar.xz" ]; then
+	echo "Using existing jammy-server-cloudimg-arm64-root.tar.xz"
+	cp ../../../jammy-server-cloudimg-arm64-root.tar.xz $WDIR/
+else
+	wget -q --show-progress --no-check-certificate $DISTRO_BASE_URL
+fi
+
+if [ -d "../../../kernel-debs" ]; then
+	echo "Using existing kernel-debs"
+	cp -r ../../../kernel-debs $WDIR/
+fi
+
+git rev-parse --short HEAD > $WDIR/COMMIT_HASH
 
 cp	Dockerfile \
 	build_ubuntu_bfb \
@@ -66,12 +98,13 @@ cp	Dockerfile \
 	../../common/tools/qemu-aarch64-static \
 	$WDIR
 
+cp ../../../ubuntu-core-22-arm64.img.xz $WDIR/
+
+echo "debugging: how big is the core image?"
+ls -alh ../../../ubuntu-core-22-arm64*
+
 cd $WDIR
 
-echo "Downloading DOCA services..."
-wget --quiet -r -np -nH --cut-dirs=5 -R "index.html*" ${BASE_URL}/doca/${DOCA_VERSION}/services/
-echo "Downloading $DISTRO base image..."
-wget -q --no-check-certificate $DISTRO_BASE_URL
 docker_image=bfb_runtime_${DISTRO,,}${DISTRO_VERSION,,}
 
 docker rm -f BlueField_OS_${DISTRO}_${DISTRO_VERSION} 2> /dev/null
@@ -80,7 +113,7 @@ sed -i -e "s/@IMAGE_TYPE@/$IMAGE_TYPE/g;s/@CUSTOM_VERSION@/$CUSTOM_VERSION/g" \
     -e "s,@BASE_URL@,$BASE_URL,g" \
     -e "s/@DOCA_VERSION@/$DOCA_VERSION/g" Dockerfile
 
-docker build -t ${docker_image} \
+DOCKER_BUILDKIT=0 docker build -t ${docker_image} \
 	--build-arg BASE_URL=$BASE_URL \
 	--build-arg DOCA_VERSION=$DOCA_VERSION \
 	--build-arg BSP_VERSION=$BSP_VERSION \
@@ -96,6 +129,10 @@ docker run -t --rm --privileged -e container=docker \
 	--mount type=bind,source=/proc,target=/proc \
 	${docker_image}
 
-readlink -f *.bfb
+path_built_image=$(readlink -f *.bfb)
+fixed_path_built_image="/tmp/my_bfb.bfb"
+# use copy so we can direct the stream properly
+cp ${path_built_image} ${fixed_path_built_image}
 
+echo "${path_built_image} links to ${fixed_path_built_image}"
 echo "Default user/password is: ubuntu/ubuntu"
