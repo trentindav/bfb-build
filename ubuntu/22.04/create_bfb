@@ -294,8 +294,6 @@ sudo mkdir -p mnt
 
 ex mkdir -p ubuntu
 # Tar the image
-echo "debugging: how big is the core image?"
-ls -alh /ubuntu-core-22-arm64* 2> /dev/null
 cp /ubuntu-core-22-arm64.img.xz ./ubuntu/ubuntu-core-22-arm64.img.xz
 ex install -m 0755 ${SDIR}/install.sh ./ubuntu/install.sh
 

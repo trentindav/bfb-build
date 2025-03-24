@@ -51,42 +51,67 @@ CUSTOM_VERSION=${CUSTOM_VERSION:-""}
 WDIR=/tmp/${DISTRO}${DISTRO_VERSION}.$$
 BASE_URL=${BASE_URL:-"https://linux.mellanox.com/public/repo"}
 
+DEPS_DIR=$(readlink -f ../../uc22-deps)
+
 mkdir -p $WDIR
-echo "Downloading mlxbf-scripts..."
-if [ -f "../../../mlxbf-scripts_arm64.deb" ]; then
-	echo "Using existing mlxbf-scripts_arm64.deb"
-	cp ../../../mlxbf-scripts_arm64.deb $WDIR/mlxbf-scripts_arm64.deb
+mkdir -p $DEPS_DIR
+echo "current pwd: $(pwd), deps dir is: ${DEPS_DIR}"
+if [ -f "$DEPS_DIR/mlxbf-scripts_arm64.deb" ]; then
+	echo "Using local mlxbf-scripts_arm64.deb"
+	cp $DEPS_DIR/mlxbf-scripts_arm64.deb $WDIR/mlxbf-scripts_arm64.deb
 else
+	echo "Downloading mlxbf-scripts..."
 	wget -q -P $WDIR -r --no-verbose --no-directories -l1 --no-parent -A 'mlxbf-scripts_3.6_arm64.deb' ${BASE_URL}/doca/${DOCA_VERSION}/${DISTRO}${DISTRO_VERSION}/aarch64/
 	mv $WDIR/mlxbf-scripts_3.6_arm64.deb $WDIR/mlxbf-scripts_arm64.deb
+	cp $WDIR/mlxbf-scripts_arm64.deb $DEPS_DIR/mlxbf-scripts_arm64.deb
 fi
-echo "Downloading mlxbf-bootctl..."
-if [ -f "../../../mlxbf-bootctl_arm64.deb" ]; then
-	echo "Using existing mlxbf-bootctl_arm64.deb"
-	cp ../../../mlxbf-bootctl_arm64.deb $WDIR/mlxbf-bootctl_arm64.deb
+if [ -f "$DEPS_DIR/mlxbf-bootctl_arm64.deb" ]; then
+	echo "Using local mlxbf-bootctl_arm64.deb"
+	cp $DEPS_DIR/mlxbf-bootctl_arm64.deb $WDIR/mlxbf-bootctl_arm64.deb
 else
+	echo "Downloading mlxbf-bootctl..."
 	wget -q -P $WDIR -r --no-verbose --no-directories -l1 --no-parent -A 'mlxbf-bootctl_2.1_arm64.deb' ${BASE_URL}/doca/${DOCA_VERSION}/${DISTRO}${DISTRO_VERSION}/aarch64/
 	mv $WDIR/mlxbf-bootctl_2.1_arm64.deb $WDIR/mlxbf-bootctl_arm64.deb
+	cp $WDIR/mlxbf-bootctl_arm64.deb $DEPS_DIR/mlxbf-bootctl_arm64.deb
 fi
-echo "Downloading mlxbf-bootimages..."
-if [ -f "../../../mlxbf-bootimages.deb" ]; then
-	echo "Using existing mlxbf-bootimages_arm64.deb"
-	cp ../../../mlxbf-bootimages.deb $WDIR/mlxbf-bootimages.deb
+if [ -f "$DEPS_DIR/mlxbf-bootimages.deb" ]; then
+	echo "Using local mlxbf-bootimages_arm64.deb"
+	cp $DEPS_DIR/mlxbf-bootimages.deb $WDIR/mlxbf-bootimages.deb
 else
+	echo "Downloading mlxbf-bootimages..."
 	wget -q -P $WDIR -r --no-verbose --no-directories -l1 --no-parent -A 'mlxbf-bootimages*arm64.deb' ${BASE_URL}/bluefield/${BSP_VERSION}/bootimages/${IMAGE_TYPE}/
 	mv $WDIR/mlxbf-bootimages*arm64.deb $WDIR/mlxbf-bootimages.deb
+	cp $WDIR/mlxbf-bootimages.deb $DEPS_DIR/mlxbf-bootimages.deb
 fi
-echo "Downloading $DISTRO base image..."
-if [ -f "../../../jammy-server-cloudimg-arm64-root.tar.xz" ]; then
-	echo "Using existing jammy-server-cloudimg-arm64-root.tar.xz"
-	cp ../../../jammy-server-cloudimg-arm64-root.tar.xz $WDIR/
+if [ -f "$DEPS_DIR/jammy-server-cloudimg-arm64-root.tar.xz" ]; then
+	echo "Using local jammy-server-cloudimg-arm64-root.tar.xz"
+	cp $DEPS_DIR/jammy-server-cloudimg-arm64-root.tar.xz $WDIR/
 else
-	wget -q --show-progress --no-check-certificate $DISTRO_BASE_URL
+	echo "Downloading $DISTRO base image..."
+	wget -q -P $WDIR -r --no-verbose --no-directories -l1 --no-parent $DISTRO_BASE_URL
+	cp $WDIR/jammy-server-cloudimg-arm64-root.tar.xz $DEPS_DIR/jammy-server-cloudimg-arm64-root.tar.xz
 fi
 
-if [ -d "../../../kernel-debs" ]; then
-	echo "Using existing kernel-debs"
-	cp -r ../../../kernel-debs $WDIR/
+kernel_debs_count=$(find "$DEPS_DIR/kernel-debs" -name "*.deb" 2> /dev/null | wc -l)
+if [ "$kernel_debs_count" -eq 5 ]; then
+	echo "Using local kernel-debs"
+	cp -r $DEPS_DIR/kernel-debs $WDIR/
+else
+	echo "Downloading kernel-debs..."
+	mkdir -p $WDIR/kernel-debs
+	kernel_debs=(
+		linux-bluefield-headers-5.15.0-1035_5.15.0-1035.37_all.deb
+		linux-headers-5.15.0-1035-bluefield_5.15.0-1035.37_arm64.deb
+		linux-image-5.15.0-1035-bluefield_5.15.0-1035.37_arm64.deb
+		linux-modules-5.15.0-1035-bluefield_5.15.0-1035.37_arm64.deb
+		linux-modules-extra-5.15.0-1035-bluefield_5.15.0-1035.37_arm64.deb
+	)
+	mellanox_deb_url=https://linux.mellanox.com/public/repo/doca/2.6.0/ubuntu22.04/dpu-arm64/
+	for deb in ${kernel_debs[@]}; do
+		wget -q -P $WDIR -r --no-verbose --no-directories -l1 --no-parent -A $deb $mellanox_deb_url
+		mv $WDIR/$deb $WDIR/kernel-debs/
+	done
+	cp -r $WDIR/kernel-debs $DEPS_DIR/
 fi
 
 git rev-parse --short HEAD > $WDIR/COMMIT_HASH
@@ -98,10 +123,8 @@ cp	Dockerfile \
 	../../common/tools/qemu-aarch64-static \
 	$WDIR
 
+echo "Retrieve UC22 image ubuntu-core-22-arm64.img.xz from bfb_build parent folder"
 cp ../../../ubuntu-core-22-arm64.img.xz $WDIR/
-
-echo "debugging: how big is the core image?"
-ls -alh ../../../ubuntu-core-22-arm64*
 
 cd $WDIR
 
