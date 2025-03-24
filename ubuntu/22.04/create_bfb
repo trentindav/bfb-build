@@ -27,7 +27,7 @@
 # of the authors and should not be interpreted as representing official policies,
 # either expressed or implied, of the FreeBSD Project.
 
-set -ex
+set -e
 
 BF_HOSTNAME="localhost"
 SDIR="/root/workspace"
@@ -95,7 +95,7 @@ WDIR=${WDIR:-/root/workspace/bfb}
 
 echo "Work directory: $WDIR"
 
-ubuntu_IMAGE="dev-slim-tai"
+ubuntu_IMAGE="dev-slim-uc22"
 commit_hash=$(cat /COMMIT_HASH)
 ubuntu_BFB=${ubuntu_IMAGE}-${commit_hash}.bfb
 

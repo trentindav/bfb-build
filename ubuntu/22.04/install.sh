@@ -310,8 +310,6 @@ unmount_partitions()
 
 install_os_image()
 {
-	log "check who mounts efivars - head of install_os_image"
-	log "$(mount | grep efivars)"
 	OS_IMAGE=$1
 	if [ "X$DUAL_BOOT" == "Xyes" ]; then
 		if [ $OS_IMAGE -eq 0 ]; then
@@ -325,31 +323,15 @@ install_os_image()
 
 	ilog "Extracting /..."
 	export EXTRACT_UNSAFE_SYMLINKS=1
-	# put UC22 here
+
+	# Write uc22 image to the device
 	log "cat core image to $device"
-	ilog "cat core image to $device"
-	log "more debugging info below..."
-	log "where am I: $(pwd)"
-	log "echo fspath: $(echo $fspath)"
-	log "ls fspath: $(ls $fspath)"
-	log "ls fspath image: $(ls $fspath/image.tar.xz)"
-	log "ls: $(ls)"
-	log "ls ubuntu: $(ls ./ubuntu)"
-	log "ls /: $(ls /)"
-	log "going to cat ..."
 	flash_log="/tmp/cat_uc22.log"
-	# execute the cat command for writting the core image to the device
-	log "check who mounts efivars - on writing uc22"
-	log "$(mount | grep efivars)"
 	xzcat $fspath/ubuntu-core-22-arm64.img.xz | dd of="$device" bs=32M status=progress > ${flash_log} 2>&1
 	sync
-	# Refresh partition table
-	log "check who mounts efivars - on refreshing partition table"
-	log "$(mount | grep efivars)"
-	blockdev --rereadpt "$device" >> ${flash_log} 2>&1
-	log "check who mounts efivars - after refreshing partition table"
-	log "$(mount | grep efivars)"
 
+	log "Refresh partition table"
+	blockdev --rereadpt "$device" >> ${flash_log} 2>&1
 	log "Remove old boot entries"
 	log "$(bfbootmgr --cleanall)"
 	/bin/rm -f /sys/firmware/efi/efivars/Boot* > /dev/null 2>&1
@@ -360,13 +342,11 @@ install_os_image()
 	fi
 	efibootmgr -c -d "$device" -p 1 -L ubuntu -l "\EFI\boot\grubaa64.efi"
 
-	log "cat log if any stderr:"
+	# Send stderr to log
 	while IFS= read -r line; do
 			log "$line"
 	done < ${flash_log}
-	log "cat log if any stderr: done"
 	log "cat core image to $device : done"
-	ilog "cat core image to $device : done"
 
 	if function_exists bfb_modify_os; then
 		log "INFO: Running bfb_modify_os from bf.cfg"
