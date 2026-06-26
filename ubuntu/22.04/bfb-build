@@ -136,7 +136,7 @@ sed -i -e "s/@IMAGE_TYPE@/$IMAGE_TYPE/g;s/@CUSTOM_VERSION@/$CUSTOM_VERSION/g" \
     -e "s,@BASE_URL@,$BASE_URL,g" \
     -e "s/@DOCA_VERSION@/$DOCA_VERSION/g" Dockerfile
 
-DOCKER_BUILDKIT=0 docker build -t ${docker_image} \
+docker build -t ${docker_image} \
 	--build-arg BASE_URL=$BASE_URL \
 	--build-arg DOCA_VERSION=$DOCA_VERSION \
 	--build-arg BSP_VERSION=$BSP_VERSION \
